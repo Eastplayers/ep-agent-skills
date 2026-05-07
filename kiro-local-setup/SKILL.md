@@ -14,22 +14,32 @@ Use this skill in Kiro to reduce local setup overhead for non-technical internal
    - If user named a repo/path, treat it as hard scope.
    - Do not edit unrelated sibling repos.
 
-2. Verify local JavaScript runtime:
-   - Run `node -v`.
-   - Run `npm -v`.
+2. Reuse the user's IDE terminal when available:
+   - If the user is working inside an IDE or Kiro exposes an opened terminal, inspect the current terminal before starting a new shell.
+   - Reuse the opened terminal only when Kiro can read the command output back from that terminal.
+   - If output capture is unavailable, use captured command execution for checks where the agent must parse stdout, stderr, or exit status.
+   - If the opened terminal is idle, its current directory is the target repository, and output capture works, run setup commands there.
+   - If the opened terminal is in a different directory and output capture works, change to the target repository there when safe.
+   - Start a new terminal only when no suitable terminal is available, the current terminal is busy, or a long-running dev server needs its own terminal.
+   - Use IDE terminals mainly for long-running dev servers or user-visible commands when terminal output cannot be captured.
+   - Avoid creating many shells for short setup checks, but do not sacrifice output capture for runtime and verification commands.
+
+3. Verify local JavaScript runtime:
+   - Run `node -v` with captured stdout/stderr/status.
+   - Run `npm -v` with captured stdout/stderr/status.
    - If either command is missing, stop and tell user to install Node.js LTS or project-required Node version before continuing.
 
-3. Detect package manager:
+4. Detect package manager:
    - Check for `pnpm-workspace.yaml`, `pnpm-lock.yaml`, or package scripts using `pnpm`.
    - If repo uses pnpm, run `pnpm -v`.
    - If pnpm is missing, install with `npm i -g pnpm`, then rerun `pnpm -v`.
    - Do not silently switch package managers.
 
-4. Install dependencies:
+5. Install dependencies:
    - For pnpm repos, run `pnpm install`.
    - Preserve lockfiles. Do not delete or regenerate lockfiles unless requested.
 
-5. Prepare Kiro steering files:
+6. Prepare Kiro steering files:
    - Check whether `replit.md` exists in the root project directory.
    - If `replit.md` exists, copy it to `{PROJECT_DIR}/.kiro/steering/overview.md`.
    - If `replit.md` does not exist, generate missing steering files under `{PROJECT_DIR}/.kiro/steering/`.
@@ -37,32 +47,33 @@ Use this skill in Kiro to reduce local setup overhead for non-technical internal
    - At minimum, ensure `overview.md`, `project-overview.md`, and `system-architecture.md` exist when `replit.md` is absent.
    - Do not overwrite existing generated steering files unless the user asks.
 
-6. Create or update root `.gitignore`:
+7. Create or update root `.gitignore`:
    - Ensure `.env` is ignored.
    - Also include `.claude/` and `.superset/`.
    - If `.gitignore` exists, append only missing required entries.
    - If `.gitignore` is missing, create a practical JavaScript/TypeScript `.gitignore`.
    - Do not ignore `.env.example`.
 
-7. Create missing `.env.example` files:
+8. Create missing `.env.example` files:
    - For each deployable artifact/package, check whether `.env.example` exists.
    - If missing, scan source for real env reads such as `process.env.X`, `process.env["X"]`, and `import.meta.env.X`.
    - Include env defaults from Replit artifact config when present, especially `PORT` and `BASE_PATH`.
    - Write only missing `.env.example` files unless user asks to update existing files.
    - Use blank values for secrets. Use obvious local defaults only when repo config already declares them.
 
-8. Explain `.env` creation to non-technical user:
+9. Explain `.env` creation to non-technical user:
    - Tell them to copy `.env.example` to `.env` in each artifact that needs it.
    - List which variables need real secret values.
    - List which variables have safe local defaults.
 
-9. Run verification:
+10. Run verification:
    - Run typecheck for each JavaScript/TypeScript package that defines a `typecheck` script.
    - For pnpm packages, prefer `pnpm --filter <package-name> run typecheck`.
    - If no package-specific typecheck exists, run root `pnpm run typecheck` when available.
+   - Run verification commands through captured execution unless the IDE terminal output is readable by Kiro.
    - If typecheck fails, report exact package and command. Do not claim repo is ready.
 
-10. Give final run commands:
+11. Give final run commands:
    - Include one command block per terminal.
    - Include exact URLs to open.
    - Mention optional integrations separately from required setup.
@@ -110,3 +121,5 @@ For non-technical users:
  - Do not modify existing `.env.example` files unless requested.
  - Do not patch application code while doing setup unless user asks to fix setup failures.
  - Do not run destructive cleanup commands.
+ - Do not create extra terminals for commands that can run in an existing idle IDE terminal with readable output.
+ - Do not run `node -v`, `npm -v`, `pnpm -v`, install checks, or typechecks in an IDE terminal if Kiro cannot capture the output.
